@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>三一重工财务指标可视化｜学习项目</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <h1>三一重工（600031）财务表现分析</h1>
+    <p>Python / pandas / SQLite / Flask 学习项目｜数据来源：2019–2023 年公开年报</p>
+    <section id="summary" class="cards"></section>
+
+    <section class="charts">
+      <div class="panel">
+        <h2>五年营收与净利趋势（亿元）</h2>
+        <canvas id="trendChart" width="520" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>2023 年同业加权 ROE 对比（%）</h2>
+        <canvas id="peerChart" width="520" height="280"></canvas>
+      </div>
+    </section>
+
+    <section>
+      <h2>三一重工五年指标明细</h2>
+      <table id="financials"></table>
+    </section>
+    <section>
+      <h2>2023 年同业对标</h2>
+      <table id="peers"></table>
+    </section>
+    <p style="color:#6b7280;font-size:13px">
+      说明：本项目为学习/求职作品展示，数据取自公开年报，不构成任何投资建议。
+    </p>
+  </main>
+<script>
+// 字段中文名映射：表头不暴露英文列名，方便面试时直接讲
+const COLUMN_LABELS = {
+  year: "年份",
+  revenue: "营业收入（亿元）",
+  gross_margin: "毛利率",
+  net_profit: "归母净利润（亿元）",
+  operating_cash_flow: "经营活动现金流（亿元）",
+  investing_cash_flow: "投资活动现金流（亿元）",
+  financing_cash_flow: "筹资活动现金流（亿元）",
+  fx_effect_on_cash: "汇率变动影响（亿元）",
+  net_cash_increase: "现金净增加额（亿元）",
+  total_asset_turnover: "总资产周转率（次）",
+  ar_turnover: "应收账款周转率（次）",
+  inventory_turnover: "存货周转率（次）",
+  debt_to_asset: "资产负债率",
+  cash_ratio: "现金比率",
+  company: "公司",
+  roe: "加权平均 ROE",
+  asset_turnover: "总资产周转率（次）",
+  eps: "基本每股收益（元）",
+  ocf_per_share: "每股经营现金流（元）",
+  data_note: "数据口径说明"
+};
+
+async function getJSON(url){ const r = await fetch(url); return await r.json(); }
+
+const moneyKeys = new Set(["revenue","net_profit","operating_cash_flow","investing_cash_flow","financing_cash_flow","fx_effect_on_cash","net_cash_increase"]);
+const percentFractionKeys = new Set(["gross_margin","debt_to_asset","cash_ratio"]);
+const turnoverKeys = new Set(["total_asset_turnover","ar_turnover","inventory_turnover","asset_turnover"]);
+
+function fmt(k,v){
+  if(v === null || Number.isNaN(v)) return "—";
+  if(k === "year") return String(v);
+  if(moneyKeys.has(k)) return Number(v).toFixed(2);
+  if(percentFractionKeys.has(k)) return (Number(v)*100).toFixed(2)+"%";
+  if(k === "roe") return Number(v).toFixed(2)+"%";
+  if(turnoverKeys.has(k) || k === "eps" || k === "ocf_per_share") return Number(v).toFixed(2);
+  return v;
+}
+
+function renderTable(id, data){
+  const el = document.getElementById(id);
+  const keys = Object.keys(data[0]);
+  el.innerHTML = "<thead><tr>"+keys.map(k=>`<th>${COLUMN_LABELS[k]||k}</th>`).join("")+"</tr></thead><tbody>"+
+    data.map(row=>"<tr>"+keys.map(k=>`<td>${fmt(k,row[k])}</td>`).join("")+"</tr>").join("")+"</tbody>";
+}
+
+function drawLineChart(canvasId, labels, series){
+  const c=document.getElementById(canvasId), ctx=c.getContext("2d"), W=c.width, H=c.height;
+  ctx.clearRect(0,0,W,H); ctx.font="12px Microsoft YaHei";
+  const pad={l:48,r:18,t:25,b:38};
+  const values=series.flatMap(s=>s.values.filter(v=>v!==null));
+  const min=Math.min(...values)*0.9, max=Math.max(...values)*1.1;
+  ctx.strokeStyle="#e5e7eb"; ctx.lineWidth=1;
+  for(let i=0;i<5;i++){ const y=pad.t+(H-pad.t-pad.b)*i/4; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); }
+  const colors=["#1f4e78","#00a6a6"];
+  series.forEach((s,si)=>{
+    ctx.strokeStyle=colors[si%colors.length]; ctx.lineWidth=2; ctx.beginPath();
+    s.values.forEach((v,i)=>{ if(v===null)return; const x=pad.l+(W-pad.l-pad.r)*i/(labels.length-1); const y=H-pad.b-(v-min)/(max-min)*(H-pad.t-pad.b); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+    ctx.fillStyle=colors[si%colors.length]; ctx.fillText(s.name, pad.l+si*130, 16);
+  });
+  ctx.fillStyle="#4b5563"; labels.forEach((l,i)=>{ const x=pad.l+(W-pad.l-pad.r)*i/(labels.length-1); ctx.fillText(l,x-12,H-12); });
+}
+
+function drawBarChart(canvasId, labels, values){
+  const c=document.getElementById(canvasId), ctx=c.getContext("2d"), W=c.width, H=c.height;
+  ctx.clearRect(0,0,W,H); ctx.font="12px Microsoft YaHei";
+  const pad={l:42,r:18,t:20,b:54}; const max=Math.max(...values)*1.2; const bw=(W-pad.l-pad.r)/labels.length*0.55;
+  ctx.strokeStyle="#e5e7eb"; for(let i=0;i<5;i++){ const y=pad.t+(H-pad.t-pad.b)*i/4; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); }
+  values.forEach((v,i)=>{ const x=pad.l+(W-pad.l-pad.r)*(i+0.2)/labels.length; const h=v/max*(H-pad.t-pad.b); ctx.fillStyle="#1f4e78"; ctx.fillRect(x,H-pad.b-h,bw,h); ctx.fillStyle="#374151"; ctx.fillText(v.toFixed(2),x,H-pad.b-h-5); ctx.save(); ctx.translate(x+5,H-12); ctx.rotate(-0.4); ctx.fillText(labels[i],0,0); ctx.restore(); });
+}
+
+(async()=>{
+  const summary = await getJSON("/api/summary");
+  const financials = await getJSON("/api/financials");
+  const peers = await getJSON("/api/peers");
+
+  const cards = [
+    ["营业收入", summary.revenue.toFixed(2)+" 亿元"],
+    ["营业收入同比", (summary.revenue_yoy*100).toFixed(2)+"%"],
+    ["毛利率", (summary.gross_margin*100).toFixed(2)+"%"],
+    ["经营活动现金流", summary.operating_cash_flow.toFixed(2)+" 亿元"],
+    ["经营现金流 ÷ 归母净利", summary.ocf_to_net_profit.toFixed(2)+" 倍"],
+    ["应收账款周转率", summary.ar_turnover.toFixed(2)+" 次"]
+  ];
+  document.getElementById("summary").innerHTML = cards.map(c=>`<div class="card"><b>${c[0]}</b><span>${c[1]}</span></div>`).join("");
+
+  renderTable("financials", financials);
+  renderTable("peers", peers);
+
+  drawLineChart("trendChart", financials.map(d=>String(d.year)), [
+    {name:"营业收入", values:financials.map(d=>d.revenue)},
+    {name:"归母净利润", values:financials.map(d=>d.net_profit)}
+  ]);
+
+  drawBarChart("peerChart", peers.map(d=>d.company), peers.map(d=>d.roe));
+})();
+</script>
+</body>
+</html>
