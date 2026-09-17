@@ -1,0 +1,16 @@
+/* 三一重工财务指标可视化 —— 页面样式
+   配色：深蓝 #1f4e78（主色，呼应财务报告的正式感）+ 浅灰底 #f7f9fb
+   无外部字体/CDN 依赖，离线也能正常显示。 */
+
+body{font-family:-apple-system,BlinkMacSystemFont,"Microsoft YaHei",Arial,sans-serif;margin:0;background:#f7f9fb;color:#1f2937}
+main{max-width:1180px;margin:32px auto;padding:0 24px}
+h1{color:#1f4e78;margin-bottom:4px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+.card,.panel{background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.card span{display:block;margin-top:10px;font-size:24px;color:#1f4e78}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+table{border-collapse:collapse;width:100%;background:white;margin:16px 0 32px;border-radius:12px;overflow:hidden}
+th{background:#1f4e78;color:white}
+th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:right}
+th:first-child,td:first-child{text-align:left}
+@media(max-width:900px){.cards,.charts{grid-template-columns:1fr}}
