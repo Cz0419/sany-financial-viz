@@ -96,7 +96,6 @@ sany_financial_viz/
 ├── templates/index.html        # 前端页面（原生 Canvas，无外部 CDN）
 ├── static/style.css            # 样式
 ├── tests/test_metrics.py       # 13 个数据口径测试
-├── .env.example                # 环境变量示例（可不用）
 └── LICENSE                     # MIT
 ```
 
