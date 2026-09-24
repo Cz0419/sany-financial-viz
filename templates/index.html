@@ -59,6 +59,13 @@ const COLUMN_LABELS = {
   data_note: "数据口径说明"
 };
 
+// HTML 转义：凡拼进 innerHTML 的文本都先过这里（防注入、防特殊字符串版）
+const ESC_MAP = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+const esc = s => String(s === null || s === undefined ? "" : s).replace(/[&<>"']/g, c => ESC_MAP[c]);
+// 数值/百分比容错：接口可能返回 null（如数据不足或分母为 0）
+const num = (v,d=2) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "—";
+const pct = (v,d=2) => (typeof v === "number" && isFinite(v)) ? (v*100).toFixed(d)+"%" : "—";
+
 async function getJSON(url){ const r = await fetch(url); return await r.json(); }
 
 const moneyKeys = new Set(["revenue","net_profit","operating_cash_flow","investing_cash_flow","financing_cash_flow","fx_effect_on_cash","net_cash_increase"]);
@@ -77,9 +84,14 @@ function fmt(k,v){
 
 function renderTable(id, data){
   const el = document.getElementById(id);
+  // 空数据兜底：接口返回 [] 时不要取 data[0]，否则整个页面（指标卡+两张图）都会不渲染
+  if(!Array.isArray(data) || data.length === 0){
+    el.innerHTML = "<tbody><tr><td>暂无数据</td></tr></tbody>";
+    return;
+  }
   const keys = Object.keys(data[0]);
-  el.innerHTML = "<thead><tr>"+keys.map(k=>`<th>${COLUMN_LABELS[k]||k}</th>`).join("")+"</tr></thead><tbody>"+
-    data.map(row=>"<tr>"+keys.map(k=>`<td>${fmt(k,row[k])}</td>`).join("")+"</tr>").join("")+"</tbody>";
+  el.innerHTML = "<thead><tr>"+keys.map(k=>`<th>${esc(COLUMN_LABELS[k]||k)}</th>`).join("")+"</tr></thead><tbody>"+
+    data.map(row=>"<tr>"+keys.map(k=>`<td>${esc(fmt(k,row[k]))}</td>`).join("")+"</tr>").join("")+"</tbody>";
 }
 
 function drawLineChart(canvasId, labels, series){
@@ -113,15 +125,22 @@ function drawBarChart(canvasId, labels, values){
   const financials = await getJSON("/api/financials");
   const peers = await getJSON("/api/peers");
 
-  const cards = [
-    ["营业收入", summary.revenue.toFixed(2)+" 亿元"],
-    ["营业收入同比", (summary.revenue_yoy*100).toFixed(2)+"%"],
-    ["毛利率", (summary.gross_margin*100).toFixed(2)+"%"],
-    ["经营活动现金流", summary.operating_cash_flow.toFixed(2)+" 亿元"],
-    ["经营现金流 ÷ 归母净利", summary.ocf_to_net_profit.toFixed(2)+" 倍"],
-    ["应收账款周转率", summary.ar_turnover.toFixed(2)+" 次"]
-  ];
-  document.getElementById("summary").innerHTML = cards.map(c=>`<div class="card"><b>${c[0]}</b><span>${c[1]}</span></div>`).join("");
+  const sumEl = document.getElementById("summary");
+  // 指标卡：接口可能返回错误/数据不足（HTTP 400），此时显示提示而不是抛出 TypeError
+  if(!summary || summary.error || typeof summary.revenue !== "number"){
+    const msg = (summary && (summary.hint || summary.message || summary.error)) || "数据不足";
+    sumEl.innerHTML = `<div class="card"><b>核心指标</b><span>${esc(msg)}</span></div>`;
+  }else{
+    const cards = [
+      ["营业收入", num(summary.revenue)+" 亿元"],
+      ["营业收入同比", pct(summary.revenue_yoy)],
+      ["毛利率", pct(summary.gross_margin)],
+      ["经营活动现金流", num(summary.operating_cash_flow)+" 亿元"],
+      ["经营现金流 ÷ 归母净利", num(summary.ocf_to_net_profit)+" 倍"],
+      ["应收账款周转率", num(summary.ar_turnover)+" 次"]
+    ];
+    sumEl.innerHTML = cards.map(c=>`<div class="card"><b>${esc(c[0])}</b><span>${esc(c[1])}</span></div>`).join("");
+  }
 
   renderTable("financials", financials);
   renderTable("peers", peers);

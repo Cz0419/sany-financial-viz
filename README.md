@@ -8,6 +8,23 @@
 
 ---
 
+## 演示效果
+
+![13 周现金流 / 财务指标可视化演示](docs/screenshots/demo.gif)
+
+| 核心指标卡 | 趋势图 + 同业 ROE 对比 |
+|---|---|
+| ![指标卡](docs/screenshots/metrics.png) | ![图表区](docs/screenshots/charts.png) |
+| 五年指标明细表 | 2023 年同业对标表 |
+| ![明细表](docs/screenshots/table.png) | ![同业对标](docs/screenshots/peers.png) |
+
+> 上面是本地跑起来后的实际截图（未做美化）。**数字全部可追溯到公开年报**——
+> 2023 年营收同比 −8.51%、毛利率 27.71%、经营现金流 57.08 亿、资产负债率 54.25%；
+> 口径差异（总资产周转 0.4725 / 应收周转 2.9773 为**平均余额口径**，年报披露口径为 0.48 / 2.92 含票据）
+> 见下文「五、数据口径说明」。
+
+---
+
 ## 一、3 分钟跑起来
 
 ```bash
@@ -47,7 +64,12 @@ pip install -r requirements-dev.txt
 python -m pytest tests -v
 ```
 
-应该看到 **13 passed**。
+应该看到 **22 passed**。
+
+分两层，互不替代：
+
+- `tests/test_metrics.py`（**13 项**）—— 查**数据口径**（数字对不对），本项目最值钱的部分
+- `tests/test_api.py`（**9 项**）—— 查**接口可用性**（服务跑不跑得起来、出错是否返回 JSON），含"数据不足时必须返回 400 而不是 500"的回归保护
 
 这些测试查的是**数据口径**，不是接口通不通，这是整个项目最值钱的地方：
 
@@ -86,7 +108,8 @@ python -m pytest tests -v
 
 ```
 sany_financial_viz/
-├── app.py                      # Flask 应用与 4 个业务接口
+├── app.py                      # Flask 应用与 4 个业务接口（含统一 JSON 错误处理）
+├── config.py                   # 数据库路径解析 + 运行环境判定（app 与 build_database 共用）
 ├── requirements.txt            # 运行依赖（4 个包）
 ├── requirements-dev.txt        # 测试依赖
 ├── data/
@@ -95,7 +118,9 @@ sany_financial_viz/
 ├── scripts/build_database.py   # CSV → SQLite
 ├── templates/index.html        # 前端页面（原生 Canvas，无外部 CDN）
 ├── static/style.css            # 样式
-├── tests/test_metrics.py       # 13 个数据口径测试
+├── tests/
+│   ├── test_metrics.py         # 13 个数据口径测试
+│   └── test_api.py             # 9 个接口可用性测试
 └── LICENSE                     # MIT
 ```
 
