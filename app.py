@@ -52,11 +52,22 @@ def to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def yoy(current: Any, previous: Any) -> float | None:
-    """同比增长率。分母为 0 / 缺失 / 非数值时返回 None，避免除零与 inf。"""
+    """同比增长率。任一端为 0 / 缺失 / 非数值时返回 None，避免除零、inf，
+    以及 NaN 分子把非法 JSON 字面量 `NaN` 写进响应（2026-10-01 修）。"""
     try:
-        if previous is None or pd.isna(previous) or float(previous) == 0:
+        if pd.isna(current) or pd.isna(previous) or float(previous) == 0:
             return None
         return float(current / previous - 1)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def safe_ratio(numerator: Any, denominator: Any) -> float | None:
+    """安全除法：任一端为 0 / 缺失 / 非数值时返回 None（NaN 不得进 JSON）。"""
+    try:
+        if pd.isna(numerator) or pd.isna(denominator) or float(denominator) == 0:
+            return None
+        return float(numerator / denominator)
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -71,10 +82,16 @@ def handle_404(e):
 
 @app.errorhandler(Exception)
 def handle_error(e):
-    payload = {"error": type(e).__name__, "message": str(e)}
-    if is_dev():                     # 仅本机开发模式附带 traceback，便于排查
+    # 2026-10-01 修：生产模式下 message 只回通用文案 —— 异常原文可能内含
+    # 数据库绝对路径（如 FileNotFoundError），与 health 接口「默认不回传绝对路径」的
+    # 设计对齐；traceback 本就只在 dev 返回，message 现在同样处理。
+    payload = {"error": type(e).__name__}
+    if is_dev():                     # 仅本机开发模式返回异常详情与 traceback，便于排查
+        payload["message"] = str(e)
         import traceback
         payload["traceback"] = traceback.format_exc().splitlines()[-5:]
+    else:
+        payload["message"] = "服务器内部错误，请稍后重试。"
     code = 500 if not isinstance(e, (FileNotFoundError, ValueError)) else 400
     return jsonify(payload), code
 
@@ -134,8 +151,7 @@ def summary():
         "net_profit_yoy": yoy(latest["net_profit"], prev["net_profit"]),
         "operating_cash_flow": float(latest["operating_cash_flow"]),
         "ocf_yoy": yoy(latest["operating_cash_flow"], prev["operating_cash_flow"]),
-        "ocf_to_net_profit": float(latest["operating_cash_flow"] / latest["net_profit"])
-        if latest["net_profit"] else None,
+        "ocf_to_net_profit": safe_ratio(latest["operating_cash_flow"], latest["net_profit"]),
         "asset_turnover": float(latest["total_asset_turnover"]),
         "ar_turnover": float(latest["ar_turnover"]),
         "debt_to_asset": float(latest["debt_to_asset"]),
