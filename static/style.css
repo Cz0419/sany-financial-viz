@@ -13,4 +13,7 @@ table{border-collapse:collapse;width:100%;background:white;margin:16px 0 32px;bo
 th{background:#1f4e78;color:white}
 th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:right}
 th:first-child,td:first-child{text-align:left}
+/* 移动端适配：canvas 随容器缩放；宽表在容器内横向滚动，不撑破页面（2026-10-01） */
+canvas{max-width:100%;height:auto}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:900px){.cards,.charts{grid-template-columns:1fr}}

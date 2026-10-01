@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>三一重工财务指标可视化｜学习项目</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -14,21 +15,21 @@
     <section class="charts">
       <div class="panel">
         <h2>五年营收与净利趋势（亿元）</h2>
-        <canvas id="trendChart" width="520" height="280"></canvas>
+        <canvas id="trendChart" width="520" height="280" role="img" aria-label="三一重工 2019–2023 年营收与归母净利润趋势图"></canvas>
       </div>
       <div class="panel">
         <h2>2023 年同业加权 ROE 对比（%）</h2>
-        <canvas id="peerChart" width="520" height="280"></canvas>
+        <canvas id="peerChart" width="520" height="280" role="img" aria-label="2023 年三一重工与徐工机械、中联重科的加权平均 ROE 对比柱状图"></canvas>
       </div>
     </section>
 
     <section>
       <h2>三一重工五年指标明细</h2>
-      <table id="financials"></table>
+      <div class="table-wrap"><table id="financials"></table></div>
     </section>
     <section>
       <h2>2023 年同业对标</h2>
-      <table id="peers"></table>
+      <div class="table-wrap"><table id="peers"></table></div>
     </section>
     <p style="color:#6b7280;font-size:13px">
       说明：本项目为学习/求职作品展示，数据取自公开年报，不构成任何投资建议。
@@ -66,7 +67,13 @@ const esc = s => String(s === null || s === undefined ? "" : s).replace(/[&<>"']
 const num = (v,d=2) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "—";
 const pct = (v,d=2) => (typeof v === "number" && isFinite(v)) ? (v*100).toFixed(d)+"%" : "—";
 
-async function getJSON(url){ const r = await fetch(url); return await r.json(); }
+// 接口返回错误（含 400）时仍返回解析后的 JSON，由各分支自行判断 error 字段；
+// 只有网络失败 / 响应不是 JSON 才抛出 —— 否则任何一处失败都会整页静默白屏（2026-10-01 修）
+async function getJSON(url){
+  const r = await fetch(url);
+  try { return await r.json(); }
+  catch(e){ throw new Error(url + " 响应不可用（HTTP " + r.status + "）"); }
+}
 
 const moneyKeys = new Set(["revenue","net_profit","operating_cash_flow","investing_cash_flow","financing_cash_flow","fx_effect_on_cash","net_cash_increase"]);
 const percentFractionKeys = new Set(["gross_margin","debt_to_asset","cash_ratio"]);
@@ -121,6 +128,7 @@ function drawBarChart(canvasId, labels, values){
 }
 
 (async()=>{
+try{
   const summary = await getJSON("/api/summary");
   const financials = await getJSON("/api/financials");
   const peers = await getJSON("/api/peers");
@@ -145,13 +153,36 @@ function drawBarChart(canvasId, labels, values){
   renderTable("financials", financials);
   renderTable("peers", peers);
 
-  drawLineChart("trendChart", financials.map(d=>String(d.year)), [
-    {name:"营业收入", values:financials.map(d=>d.revenue)},
-    {name:"归母净利润", values:financials.map(d=>d.net_profit)}
-  ]);
+  // 图表数据守卫：接口返回错误对象（如未建库时的 400 JSON）时在图上给出提示，
+  // 而不是在 .map 上抛 TypeError、留下两张空白图（2026-10-01 修）
+  if(Array.isArray(financials) && financials.length){
+    drawLineChart("trendChart", financials.map(d=>String(d.year)), [
+      {name:"营业收入", values:financials.map(d=>d.revenue)},
+      {name:"归母净利润", values:financials.map(d=>d.net_profit)}
+    ]);
+  }else{
+    chartUnavailable("trendChart");
+  }
 
-  drawBarChart("peerChart", peers.map(d=>d.company), peers.map(d=>d.roe));
+  if(Array.isArray(peers) && peers.length){
+    drawBarChart("peerChart", peers.map(d=>d.company), peers.map(d=>d.roe));
+  }else{
+    chartUnavailable("peerChart");
+  }
+}catch(err){
+  // 兜底：任何加载/渲染异常都给出可见提示，不再整页静默白屏（2026-10-01 修）
+  const sumEl = document.getElementById("summary");
+  if(sumEl) sumEl.innerHTML = `<div class="card"><b>页面加载失败</b><span>${esc(String((err && err.message) || err))}</span></div>`;
+}
 })();
+
+// 图表占位提示：数据不可用时直接画在 canvas 上
+function chartUnavailable(canvasId){
+  const c = document.getElementById(canvasId), ctx = c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.font = "13px Microsoft YaHei"; ctx.fillStyle = "#6b7280";
+  ctx.fillText("图表数据不可用：接口未返回数组（未建库时请先运行 scripts/build_database.py）", 12, c.height/2);
+}
 </script>
 </body>
 </html>
