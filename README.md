@@ -104,7 +104,7 @@ python -m pytest tests -v
 | 路径 | 作用 |
 | --- | --- |
 | `/` | 可视化页面（Canvas 趋势图 + 同业柱状图） |
-| `/api/health` | 健康检查，返回数据库路径与是否存在 |
+| `/api/health` | 健康检查，返回数据库文件名与是否存在（开发模式额外返回完整路径） |
 | `/api/financials` | 三一 2019–2023 全部指标 |
 | `/api/peers` | 2023 年同业对标（ROE / 周转 / EPS / 每股经营现金流） |
 | `/api/summary` | 最新一年核心指标 + 同比 |
@@ -115,13 +115,13 @@ python -m pytest tests -v
 
 ```
 sany_financial_viz/
-├── app.py                      # Flask 应用与 4 个业务接口（含统一 JSON 错误处理）
+├── app.py                      # Flask 应用：1 个页面路由 + 4 个 API 接口（含统一 JSON 错误处理）
 ├── config.py                   # 数据库路径解析 + 运行环境判定（app 与 build_database 共用）
 ├── requirements.txt            # 运行依赖（4 个包）
 ├── requirements-dev.txt        # 测试依赖
 ├── .env.example                # 环境变量模板（无密钥）
 ├── .gitignore                  # 挡 .db / __pycache__ / .pytest_cache / .env
-├── .github/workflows/ci.yml    # CI：push/PR 自动运行 22 项测试
+├── .github/workflows/ci.yml    # CI：push/PR 自动运行全部测试（Python 3.10 / 3.12 / 3.13）
 ├── data/
 │   ├── sany_financials.csv     # 三一 2019–2023 指标
 │   └── peer_benchmark_2023.csv # 2023 同业对标

@@ -34,5 +34,5 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: 运行测试（数据口径 + 接口回归，共 22 项）
+      - name: 运行测试（数据口径 + 接口回归）
         run: python -m pytest tests -v
