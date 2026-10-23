@@ -1,6 +1,6 @@
 # 三一重工财务指标可视化｜学习项目
 
-一个用于**求职作品集**的 Python + Flask 小项目：把三一重工（600031）2019–2023 年的公开财务指标
+一个**财务数据分析个人项目**（Python + Flask）：把三一重工（600031）2019–2023 年的公开财务指标
 整理成 CSV，落进 SQLite，再用 Flask 提供接口，前端用原生 Canvas 画趋势图和同业对比图。
 
 [![CI](https://github.com/Cz0419/sany-financial-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/Cz0419/sany-financial-viz/actions/workflows/ci.yml)
@@ -172,7 +172,7 @@ sany_financial_viz/
 
 ## 七、免责与授权
 
-- 本项目仅用于**学习与求职作品展示**，不构成任何投资建议。
+- 本项目仅用于**学习与个人作品展示**，不构成任何投资建议。
 - 数据来源于三一重工、徐工机械、中联重科公开年度报告，版权归原公司所有。
   年报披露入口：[上交所 600031 公司页](http://www.sse.com.cn/assortment/stock/list/info/company/index.shtml?COMPANY_CODE=600031)；
   徐工机械（000425）、中联重科（000157）为深市公司，可在[巨潮资讯网](http://www.cninfo.com.cn)按代码检索各年年报全文。
